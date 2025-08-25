@@ -1,0 +1,160 @@
+
+<!DOCTYPE html> 
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Centro de Uñas Sheila</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Estilos-rosa.css eliminado -->
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex items-center justify-center px-4">
+
+<div class="text-center text-gray-900 w-full max-w-md p-6 bg-white rounded-2xl shadow-lg border border-blue-200">
+    <h1 class="text-3xl tracking-wide mb-2 font-bold text-blue-600">💅 Centro de Uñas Sheila</h1>
+    <p class="text-lg font-semibold text-gray-700">¡Bienvenida, tu belleza es nuestra pasión!</p>
+    <p class="text-sm text-gray-500 mb-8" id="fecha-de-hoy"></p>
+
+    <div class="bg-blue-100 text-gray-900 p-6 rounded-xl mb-6 shadow-inner border border-blue-200">
+        <div class="text-4xl font-bold text-blue-600" id="turno-actual">--</div>
+        <div class="text-sm mt-2 font-medium">TURNO ACTUAL</div>
+        <div class="text-lg font-semibold mt-4"><span id="conteo-turno">0</span> EN ESPERA</div>
+        <div class="text-sm mt-2 text-gray-600">Tiempo promedio de espera: <span id="tiempo-promedio" data-waiting-time="average">--</span></div>
+    </div>
+
+    <!-- Botón para abrir modal -->
+    <button onclick="document.getElementById('modal').classList.remove('hidden')"
+    class="bg-blue-500 hover:bg-blue-600 transition w-full py-3 text-white font-semibold rounded-xl shadow">
+    ✨ TOMAR TURNO
+    </button>
+
+    <!-- Contenedor del mensaje de confirmación -->
+    <div id="mensaje-turno" class="mt-6"></div>
+    
+    <!-- Historial de clientes (oculto por defecto) -->
+    <div id="client-history" class="mt-6 bg-white p-4 rounded-xl shadow hidden">
+        <h3 class="text-lg font-semibold text-blue-600 mb-2">Historial de Clientes</h3>
+        <div id="client-history-content" class="text-sm"></div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden px-4">
+        <div class="bg-white text-gray-900 rounded-2xl w-full max-w-2xl p-6 relative shadow-2xl border border-blue-200">
+            <button onclick="document.getElementById('modal').classList.add('hidden')"
+            class="absolute top-4 right-4 text-gray-500 text-2xl font-bold hover:text-blue-600">&times;</button>
+            
+            <h2 class="text-xl font-bold mb-4 text-blue-600">Reservar tu turno</h2>
+            <form id="formRegistroNegocio" class="space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Nombre</label>
+                        <input type="text" name="nombre" required class="w-full border border-blue-300 rounded-lg p-2 focus:ring-blue-400 focus:border-blue-400" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Teléfono</label>
+                        <input type="tel" name="telefono" required class="w-full border border-blue-300 rounded-lg p-2 focus:ring-blue-400 focus:border-blue-400" />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">Servicio</label>
+                        <select name="tipo" required class="w-full border border-blue-300 rounded-lg p-2 focus:ring-blue-400 focus:border-blue-400">
+                            <option value="">Selecciona servicio</option>
+                            <!-- Los servicios se cargarán dinámicamente desde services.js -->
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">Notas / Detalles</label>
+                        <textarea name="descripcion" rows="3"
+                        class="w-full border border-blue-300 rounded-lg p-2 focus:ring-blue-400 focus:border-blue-400"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-4">
+                    <span id="estadoRegistro" class="text-green-600 text-sm"></span>
+                    <button type="submit"
+                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+                    Confirmar Turno
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="admin/formulariocliente.js"></script>
+<script src="admin/services.js"></script>
+<script>
+(function(){
+  const elFecha = document.getElementById('fecha-de-hoy');
+  const elActual = document.getElementById('turno-actual');
+  const elEspera = document.getElementById('conteo-turno');
+  const elMensaje = document.getElementById('mensaje-turno');
+  const modal = document.getElementById('modal');
+  const form = document.getElementById('formRegistroNegocio');
+
+  function formatFecha() {
+    try {
+      const d = new Date();
+      return d.toLocaleDateString('es-DO', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) 
+        + ' ' + d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+    } catch(e) {
+      return new Date().toLocaleString();
+    }
+  }
+
+  function render(state){
+    const cur = TurnoRD.getCurrentTicket();
+    elActual.textContent = cur ? cur.code : '--';
+    const waiting = state.queue.filter(t => t.status === 'waiting').length;
+    elEspera.textContent = String(waiting);
+    
+    // Actualizar tiempo promedio de espera
+    const tiempoPromedio = document.getElementById('tiempo-promedio');
+    if (tiempoPromedio && ServicesManager && ServicesManager.getAverageWaitingTime) {
+      const avgTime = ServicesManager.getAverageWaitingTime();
+      tiempoPromedio.textContent = avgTime ? ServicesManager.formatDuration(avgTime) : '--';
+    }
+    
+    // Actualizar historial de clientes si está disponible
+    const clientHistoryDiv = document.getElementById('client-history');
+    const clientHistoryContent = document.getElementById('client-history-content');
+    if (clientHistoryDiv && clientHistoryContent && ServicesManager && ServicesManager.getClientHistory) {
+      const history = ServicesManager.getClientHistory();
+      if (history && history.length > 0) {
+        clientHistoryDiv.classList.remove('hidden');
+        clientHistoryContent.innerHTML = '';
+        const lastFive = history.slice(-5).reverse(); // Mostrar los últimos 5 clientes
+        lastFive.forEach(client => {
+          const item = document.createElement('div');
+          item.className = 'mb-2 pb-2 border-b border-gray-100';
+          item.innerHTML = `<strong>${client.name}</strong> - ${client.service} <span class="text-gray-500">(${new Date(client.date).toLocaleTimeString('es-DO', {hour: '2-digit', minute: '2-digit'})})</span>`;
+          clientHistoryContent.appendChild(item);
+        });
+      } else {
+        clientHistoryDiv.classList.add('hidden');
+      }
+    }
+  }
+
+  elFecha.textContent = formatFecha();
+  setInterval(() => { elFecha.textContent = formatFecha(); }, 60000);
+
+  TurnoRD.subscribe(render);
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    const fd = new FormData(form);
+    const nombre = fd.get('nombre') || '';
+    const telefono = fd.get('telefono') || '';
+    const tipo = fd.get('tipo') || '';
+    const descripcion = fd.get('descripcion') || '';
+    const { ticket, ahead } = TurnoRD.addTicket({ name: nombre, phone: telefono, type: tipo, description: descripcion });
+    elMensaje.innerHTML = '<div class="bg-blue-50 text-blue-700 px-4 py-3 rounded-lg">✨ Turno registrado: <strong>' + ticket.code + '</strong>' + (ahead>0 ? ' | Personas por delante: ' + ahead : '') + '</div>';
+    modal.classList.add('hidden');
+    form.reset();
+  });
+})();
+</script>
+
+<!-- Script de configuración -->
+<script src="admin/configuracion.js"></script>
+</body>
+</html>

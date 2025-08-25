@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Centro de Uñas Sheila</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <!-- Sidebar -->
+    <div class="flex min-h-screen">
+        <aside id="sidebar" class="w-64 bg-blue-900 text-white p-6 flex flex-col justify-between min-h-full hidden md:block">
+            <div>
+                <h2 class="text-2xl font-bold mb-8 text-white">Centro de Uñas Sheila</h2>
+                <nav class="space-y-4">
+                    <a href="inicio.html" class="block hover:text-blue-200">Inicio</a>
+                    <a href="turnos.html" class="block hover:text-blue-200">Turnos</a>
+                    <a href="negocio.html" class="block hover:text-blue-200">Mi negocio</a>
+                    <a href="configuracion.html" class="block hover:text-blue-200">Configuración</a>
+                    <a href="cierre.html" class="block hover:text-red-200 mt-6">Cerrar sesión</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="flex-1 p-6">
+            <h1 class="text-2xl font-bold mb-6">Configuración</h1>
+
+            <!-- Selector de colores -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-4">Personalización</h2>
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-3">Color del panel</h3>
+                    <p class="text-gray-600 mb-4">Selecciona el color que prefieras para el panel administrativo. El color se aplicará a todas las páginas.</p>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        <!-- Azul -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-blue-900 hover:opacity-90 transition-opacity" data-color="blue-900" title="Azul">
+                                <span class="sr-only">Azul</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Azul</p>
+                        </div>
+                        
+                        <!-- Verde -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-green-700 hover:opacity-90 transition-opacity" data-color="green-700" title="Verde">
+                                <span class="sr-only">Verde</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Verde</p>
+                        </div>
+                        
+                        <!-- Rojo -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-red-700 hover:opacity-90 transition-opacity" data-color="red-700" title="Rojo">
+                                <span class="sr-only">Rojo</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Rojo</p>
+                        </div>
+                        
+                        <!-- Morado -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-purple-800 hover:opacity-90 transition-opacity" data-color="purple-800" title="Morado">
+                                <span class="sr-only">Morado</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Morado</p>
+                        </div>
+                        
+                        <!-- Gris -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-gray-800 hover:opacity-90 transition-opacity" data-color="gray-800" title="Gris">
+                                <span class="sr-only">Gris</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Gris</p>
+                        </div>
+                        
+                        <!-- Rosa -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-pink-600 hover:opacity-90 transition-opacity" data-color="pink-600" title="Rosa">
+                                <span class="sr-only">Rosa</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Rosa</p>
+                        </div>
+                        
+                        <!-- Naranja -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-orange-600 hover:opacity-90 transition-opacity" data-color="orange-600" title="Naranja">
+                                <span class="sr-only">Naranja</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Naranja</p>
+                        </div>
+                        
+                        <!-- Amarillo -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-yellow-600 hover:opacity-90 transition-opacity" data-color="yellow-600" title="Amarillo">
+                                <span class="sr-only">Amarillo</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Amarillo</p>
+                        </div>
+                        
+                        <!-- Cian -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-cyan-700 hover:opacity-90 transition-opacity" data-color="cyan-700" title="Cian">
+                                <span class="sr-only">Cian</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Cian</p>
+                        </div>
+                        
+                        <!-- Índigo -->
+                        <div class="color-option">
+                            <button class="color-btn w-full h-20 rounded-lg bg-indigo-700 hover:opacity-90 transition-opacity" data-color="indigo-700" title="Índigo">
+                                <span class="sr-only">Índigo</span>
+                            </button>
+                            <p class="text-center mt-1 text-sm">Índigo</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="admin/configuracion.js"></script>
+</body>
+</html>

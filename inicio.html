@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Administrativo - TurnoRD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen text-slate-800 bg-gray-100 relative overflow-auto">
+
+  <!-- Patrón gris sutil -->
+  <div class="pointer-events-none absolute inset-0 -z-20 opacity-[0.15]" 
+       style="background-image: radial-gradient(circle at 1px 1px, rgb(203 213 225 / 0.6) 1px, transparent 1px); 
+              background-size: 20px 20px;">
+  </div>
+
+  <!-- Layout -->
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-blue-900 text-white p-6 flex flex-col justify-between min-h-full hidden md:block">
+      <div>
+        <h2 class="text-2xl font-bold mb-8">Centro de Uñas Sheila</h2>
+        <nav class="space-y-4">
+          <a href="inicio.html" class="block hover:text-blue-200">Inicio</a>
+          <a href="turnos.html" class="block hover:text-blue-200">Turnos</a>
+          <a href="negocio.html" class="block hover:text-blue-200">Mi negocio</a>
+          <a href="configuracion.html" class="block hover:text-blue-200">Configuración</a>
+          <a href="cierre.html" class="block hover:text-red-200 mt-6">Cerrar sesión</a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Contenido principal -->
+    <main class="flex-1 p-6">
+      <h1 class="text-2xl font-bold mb-6">Bienvenido, Administrador</h1>
+
+      <!-- Resumen -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+          <h3 class="text-lg font-semibold">Turnos en espera</h3>
+          <p class="text-3xl font-bold text-gray-700 mt-2"><span id="waiting-count">0</span></p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+          <h3 class="text-lg font-semibold">Turnos atendidos</h3>
+          <p class="text-3xl font-bold text-gray-700 mt-2"><span id="served-count">0</span></p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow border border-gray-200">
+          <h3 class="text-lg font-semibold">Turnos del día</h3>
+          <p class="text-3xl font-bold text-gray-700 mt-2"><span id="total-count">0</span></p>
+        </div>
+      </div>
+
+      <!-- Tabla de turnos -->
+      <div class="bg-white rounded-xl shadow p-4 overflow-x-auto border border-gray-200">
+        <h2 class="text-lg font-bold mb-4">Historial de turnos</h2>
+        <table class="min-w-full text-left">
+          <thead>
+            <tr>
+              <th class="py-2 px-4 border-b">Turno</th>
+              <th class="py-2 px-4 border-b">Cliente</th>
+              <th class="py-2 px-4 border-b">Hora</th>
+              <th class="py-2 px-4 border-b">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="historial-body"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+<script src="admin/formulariocliente.js"></script>
+<script>
+(function(){
+  function byId(id){ return document.getElementById(id); }
+  function setText(id, val){ const el = byId(id); if (el) el.textContent = String(val); }
+  function fmtDate(iso){
+    try{
+      const d = new Date(iso);
+      return d.toLocaleString('es-DO', { hour:'2-digit', minute:'2-digit' });
+    }catch(e){ return '-'; }
+  }
+  function statusPill(status){
+    const map = {
+      waiting:  { text: 'En espera',  cls: 'text-yellow-700 bg-yellow-100' },
+      serving:  { text: 'Atendiendo', cls: 'text-blue-700 bg-blue-100' },
+      served:   { text: 'Atendido',   cls: 'text-green-700 bg-green-100' },
+      canceled: { text: 'Cancelado',  cls: 'text-gray-700 bg-gray-200' }
+    };
+    const m = map[status] || { text: status, cls: 'text-gray-700 bg-gray-100' };
+    return `<span class="px-2 py-1 rounded-full text-xs font-medium ${m.cls}">${m.text}</span>`;
+  }
+  function render(state){
+    const total = state.queue.length;
+    const served = state.queue.filter(t => t.status === 'served').length;
+    const waiting = state.queue.filter(t => t.status === 'waiting').length;
+    setText('total-count', total);
+    setText('served-count', served);
+    setText('waiting-count', waiting);
+
+    const tbody = byId('historial-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const items = [...state.queue].sort((a,b)=> new Date(b.createdAt||0) - new Date(a.createdAt||0));
+    if (items.length === 0){
+      tbody.innerHTML = `<tr><td colspan="4" class="py-4 px-4 text-center text-gray-500">Sin registros</td></tr>`;
+      return;
+    }
+    items.forEach(t => {
+      const hora = fmtDate(t.servedAt || t.calledAt || t.createdAt);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-2 px-4 border-b">${t.code}</td>
+        <td class="py-2 px-4 border-b">${t.name || '-'}</td>
+        <td class="py-2 px-4 border-b">${hora}</td>
+        <td class="py-2 px-4 border-b">${statusPill(t.status)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  try {
+    if (window.TurnoRD) {
+      TurnoRD.subscribe(render);
+      render(TurnoRD.getState());
+    }
+  } catch (e) { console.error(e); }
+})();
+</script>
+<script src="admin/configuracion.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Login | TurnoRD</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Tailwind CSS -->
+</head>
+<body class="min-h-screen text-slate-800 bg-gray-100 relative overflow-auto flex items-center justify-center px-4">
+
+<!-- Patrón sutil en gris suave -->
+<div class="pointer-events-none absolute inset-0 -z-20 opacity-[0.15]" style="background-image: radial-gradient(circle at 1px 1px, rgb(203 213 225 / 0.6) 1px, transparent 1px); background-size: 20px 20px;"></div>
+
+<div class="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg w-full max-w-sm p-6 text-gray-900 border border-blue-100">
+    <h2 class="text-2xl font-bold text-center mb-6 bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent">Iniciar sesión</h2>
+
+    <form id="loginForm" class="space-y-4">
+    <div>
+        <label class="block text-sm font-medium mb-1">Usuario</label>
+        <input type="text" id="usuario" required class="w-full border border-blue-200 rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300" />
+    </div>
+    <div>
+        <label class="block text-sm font-medium mb-1">Contraseña</label>
+        <input type="password" id="contrasena" required class="w-full border border-blue-200 rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300" />
+    </div>
+    <button type="submit" class="w-full bg-gradient-to-r from-blue-700 to-blue-900 text-white py-2 rounded-lg hover:from-blue-800 hover:to-blue-950 transition shadow-md shadow-blue-200">
+        Entrar
+    </button>
+    </form>
+
+    <p id="mensajeError" class="text-red-600 mt-4 text-sm hidden">Usuario o contraseña incorrectos.</p>
+</div>
+
+<script src="login.js"></script>
+<script src="admin/configuracion.js"></script>
+</body>
+</html>
