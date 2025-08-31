@@ -43,7 +43,7 @@
     <!-- Sidebar -->
     <aside id="sidebar" class="w-64 bg-blue-900 dark:bg-blue-800 text-white p-6 fixed md:static inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out z-30 overflow-y-auto">
       <div class="flex justify-between items-center mb-8">
-        <h2 class="text-2xl font-bold">Centro de Uñas Sheila</h2>
+        <h2 id="business-name-sidebar" class="text-2xl font-bold">Cargando...</h2>
         <button id="theme-toggle" class="p-2 rounded-full hover:bg-blue-800 dark:hover:bg-blue-900 focus:outline-none">
           <!-- Icono sol (modo claro) -->
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -381,9 +381,27 @@
   </div>
   
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script src="admin/formulariocliente.js"></script>
-  <script type="module" src="./admin/negocio.js"></script>
+
+  <!-- Scripts de la nueva arquitectura -->
+  <script type="module" src="admin/supabase_integration.js"></script>
+  <script type="module" src="admin/db_schema.js"></script>
+  <script type="module" src="admin/router.js"></script>
+  <script type="module" src="admin/negocio.js"></script>
   <script src="admin/configuracion.js"></script>
   <script src="admin/services.js"></script>
+
+  <!-- Script para actualizar la UI cuando el negocio esté listo -->
+  <script>
+    document.addEventListener('businessReady', (e) => {
+      const business = e.detail;
+      if (business) {
+        const businessNameEl = document.getElementById('business-name-sidebar');
+        document.title = `Negocio - ${business.name}`;
+        if (businessNameEl) {
+          businessNameEl.textContent = business.name;
+        }
+      }
+    });
+  </script>
 </body>
 </html>

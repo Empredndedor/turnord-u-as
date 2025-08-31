@@ -36,39 +36,27 @@
     </section>
   </main>
 
-  <!-- Scripts para cargar datos del negocio -->
-  <script src="admin/businesses.js"></script>
+  <!-- Scripts para la nueva arquitectura -->
+  <script type="module" src="admin/supabase_integration.js"></script>
+  <script type="module" src="admin/db_schema.js"></script>
+  <script type="module" src="admin/router.js"></script>
+
+  <!-- Script para actualizar la UI cuando el negocio esté listo -->
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const businessId = localStorage.getItem('turnord_current_business_id');
-      if (!businessId) {
-        // Si no hay un negocio seleccionado, redirigir al selector
-        window.location.href = 'selector.html';
-        return;
-      }
-
-      const businesses = window.APP_BUSINESSES || [];
-      const currentBusiness = businesses.find(b => b.id === businessId);
-
-      if (currentBusiness) {
+    document.addEventListener('businessReady', (e) => {
+      const business = e.detail;
+      if (business) {
         // Actualizar el contenido de la página con el nombre del negocio
         const businessNameEl = document.getElementById('business-name');
         const businessSignatureEl = document.getElementById('business-signature');
 
-        document.title = `${currentBusiness.name} | Tomar turno`;
+        document.title = `${business.name} | Tomar turno`;
         if (businessNameEl) {
-          businessNameEl.textContent = `¡Bienvenidos a ${currentBusiness.name}!`;
+          businessNameEl.textContent = `¡Bienvenidos a ${business.name}!`;
         }
         if (businessSignatureEl) {
-          businessSignatureEl.textContent = `Con cariño, ${currentBusiness.name}`;
+          businessSignatureEl.textContent = `Con cariño, ${business.name}`;
         }
-      } else {
-        // Si el ID guardado no corresponde a ningún negocio, mostrar un error
-        const businessNameEl = document.getElementById('business-name');
-        if (businessNameEl) {
-          businessNameEl.textContent = 'Error: Negocio no encontrado';
-        }
-        console.error(`No se encontró ningún negocio con el ID: ${businessId}`);
       }
     });
   </script>

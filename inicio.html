@@ -28,8 +28,8 @@
         </nav>
       </div>
       <nav>
-          <a href="selector.html" class="block hover:text-yellow-200 text-yellow-300 border-t border-blue-800 pt-4 mt-4">Cambiar de negocio</a>
-          <a href="cierre.html" class="block hover:text-red-200 mt-4">Cerrar sesión</a>
+          <!-- El link para cambiar de negocio ya no es necesario -->
+          <a href="cierre.html" class="block hover:text-red-200 mt-4 border-t border-blue-800 pt-4">Cerrar sesión</a>
       </nav>
     </aside>
 
@@ -73,6 +73,7 @@
 
 <script src="admin/formulariocliente.js"></script>
 <script>
+// Este script es para la tabla de historial de la página de inicio
 (function(){
   function byId(id){ return document.getElementById(id); }
   function setText(id, val){ const el = byId(id); if (el) el.textContent = String(val); }
@@ -120,40 +121,37 @@
       tbody.appendChild(tr);
     });
   }
-  try {
-    if (window.TurnoRD) {
-      TurnoRD.subscribe(render);
-      render(TurnoRD.getState());
-    }
-  } catch (e) { console.error(e); }
+
+  document.addEventListener('businessReady', () => {
+    try {
+      if (window.TurnoRD) {
+        TurnoRD.subscribe(render);
+        render(TurnoRD.getState());
+      }
+    } catch (e) { console.error(e); }
+  });
 })();
 </script>
-<script src="admin/businesses.js"></script>
+
+<!-- Scripts de la nueva arquitectura -->
+<script type="module" src="admin/supabase_integration.js"></script>
+<script type="module" src="admin/db_schema.js"></script>
+<script type="module" src="admin/router.js"></script>
+<script type="module" src="admin/negocio.js"></script>
+<script src="admin/configuracion.js"></script> <!-- Este es para el color del sidebar, puede quedarse -->
+
+<!-- Script para actualizar la UI cuando el negocio esté listo -->
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const businessId = localStorage.getItem('turnord_current_business_id');
-    if (!businessId) {
-      window.location.href = 'selector.html';
-      return;
-    }
-
-    const businesses = window.APP_BUSINESSES || [];
-    const currentBusiness = businesses.find(b => b.id === businessId);
-
-    if (currentBusiness) {
+  document.addEventListener('businessReady', (e) => {
+    const business = e.detail;
+    if (business) {
       const businessNameEl = document.getElementById('business-name-sidebar');
-      document.title = `Panel - ${currentBusiness.name}`;
+      document.title = `Panel - ${business.name}`;
       if (businessNameEl) {
-        businessNameEl.textContent = currentBusiness.name;
-      }
-    } else {
-      const businessNameEl = document.getElementById('business-name-sidebar');
-      if (businessNameEl) {
-        businessNameEl.textContent = 'Negocio no válido';
+        businessNameEl.textContent = business.name;
       }
     }
   });
 </script>
-<script src="admin/configuracion.js"></script>
 </body>
 </html>

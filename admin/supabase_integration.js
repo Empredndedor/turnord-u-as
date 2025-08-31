@@ -1,6 +1,5 @@
 // admin/supabase_integration.js
 // Integración de Supabase para sincronizar turnos (tickets) en tiempo real
-// Requiere: agregar en Supabase la tabla 'tickets' (ver SQL que proporcionaremos)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -8,23 +7,23 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://fyiildgdepukxhzxfadz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5aWlsZGdkZXB1a3hoenhmYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3Mzc1MTQsImV4cCI6MjA2OTMxMzUxNH0.XmLnBvO0RXdBUGwtzx1zTn0GQYSAsD0FFDm7ibo85YQ';
 
-// --- Multi-tenancy Support ---
-function getCurrentBusinessId() {
-  return localStorage.getItem('turnord_current_business_id') || 'default';
-}
+// --- Multi-tenancy Support (URL-based) ---
+// The router script sets window.currentBusiness globally.
+const getBusinessId = () => window.currentBusiness?.id;
 
-// Clave de almacenamiento local utilizada por TurnoRD, ahora prefijada
+// The turn queue state is still stored in localStorage but is now keyed by the business ID.
 const STORAGE_KEY_BASE = 'turnord_state_v1';
 function getStorageKey() {
-    return `${getCurrentBusinessId()}_${STORAGE_KEY_BASE}`;
+    const businessId = getBusinessId();
+    if (!businessId) return null; // Return null if no business is set
+    return `${businessId}_${STORAGE_KEY_BASE}`;
 }
 
-// Prefijo para el código de turno (de formulariocliente.js)
-const PREFIX = 'A';
+const PREFIX = 'A'; // Prefijo para el código de turno
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Utilidades
+// --- Utilidades ---
 function todayStr() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -33,9 +32,12 @@ function todayStr() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// --- Local State for Turn Queue ---
 function readLocalState() {
   try {
-    const raw = localStorage.getItem(getStorageKey());
+    const storageKey = getStorageKey();
+    if (!storageKey) return { date: todayStr(), queue: [], currentIndex: null, lastNumber: 0, servedCount: 0, version: 0 };
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return { date: todayStr(), queue: [], currentIndex: null, lastNumber: 0, servedCount: 0, version: 0 };
     const st = JSON.parse(raw);
     if (!st || st.date !== todayStr()) {
@@ -47,25 +49,24 @@ function readLocalState() {
   }
 }
 
-let suppressLocalSync = false; // evita bucles de sincronización
+let suppressLocalSync = false;
 function writeLocalState(st) {
   try {
-    suppressLocalSync = true;
     const storageKey = getStorageKey();
-    // no incrementamos version aquí para evitar loops; TurnoRD maneja version cuando escribe
+    if (!storageKey) return;
+    suppressLocalSync = true;
     localStorage.setItem(storageKey, JSON.stringify(st));
-    // activar ping para que otros contextos (y listeners) reaccionen
     localStorage.setItem(storageKey + ':ping', String(Date.now()));
   } finally {
-    // pequeño retraso antes de volver a activar la escucha
     setTimeout(() => { suppressLocalSync = false; }, 50);
   }
 }
 
+// --- Data Mapping ---
 function rowFromTicket(t) {
   return {
     id: t.id,
-    tenant_id: getCurrentBusinessId(), // Usar el ID de negocio dinámico
+    tenant_id: getBusinessId(), // Use the dynamic business ID
     business_date: todayStr(),
     code: t.code || null,
     name: t.name || null,
@@ -106,6 +107,7 @@ function ticketFromRow(r) {
   };
 }
 
+// --- Queue Logic ---
 function computeCurrentIndex(queue) {
   const idx = queue.findIndex(t => t.status === 'serving');
   return idx >= 0 ? idx : null;
@@ -122,11 +124,14 @@ function computeLastNumber(queue) {
   return maxNum;
 }
 
+// --- Supabase Functions ---
 async function fetchRemoteTickets() {
+  const businessId = getBusinessId();
+  if (!businessId) return [];
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
-    .eq('tenant_id', getCurrentBusinessId()) // Usar el ID de negocio dinámico
+    .eq('tenant_id', businessId)
     .eq('business_date', todayStr())
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -144,13 +149,13 @@ async function updateTicket(id, patch) {
   if (error) throw error;
 }
 
+// --- Sync Logic ---
 async function initialMerge() {
   try {
     const remote = await fetchRemoteTickets();
     const local = readLocalState();
 
     if (remote && remote.length) {
-      // Tomar remoto como fuente de verdad para el día actual
       const queue = remote.map(ticketFromRow);
       const st = {
         date: todayStr(),
@@ -162,7 +167,6 @@ async function initialMerge() {
       };
       writeLocalState(st);
     } else if (local.queue && local.queue.length) {
-      // Subir lo local si remoto está vacío
       const rows = local.queue.map(rowFromTicket);
       await upsertTickets(rows);
     }
@@ -210,27 +214,28 @@ function applyRemoteChangeToLocal(row, eventType) {
 }
 
 function subscribeRealtime() {
-  const channel = supabase.channel('realtime-tickets')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
+  const businessId = getBusinessId();
+  if (!businessId) return null;
+
+  const channel = supabase.channel(`realtime-tickets-${businessId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `tenant_id=eq.${businessId}` }, (payload) => {
       const row = payload.new || payload.old;
       if (!row) return;
-      if (row.tenant_id !== getCurrentBusinessId()) return; // Usar el ID de negocio dinámico
       if (row.business_date !== todayStr()) return;
-      // Aplicar cambios remotos al estado local (evita bucles con suppressLocalSync)
       applyRemoteChangeToLocal(row, payload.eventType);
     })
     .subscribe((status) => {
-      // console.log('Realtime status:', status);
+      // console.log(`Realtime status for ${businessId}:`, status);
     });
   return channel;
 }
 
 function setupLocalListeners() {
   window.addEventListener('storage', (e) => {
-    if (suppressLocalSync) return; // cambio iniciado por remoto
+    if (suppressLocalSync) return;
     const storageKey = getStorageKey();
+    if (!storageKey) return;
     if (e.key === storageKey || e.key === storageKey + ':ping') {
-      // Empujar todo el estado local a remoto (simple y robusto)
       pushLocalToRemote();
     }
   });
@@ -247,15 +252,19 @@ async function onPaymentUpdate(id, payload) {
 }
 
 async function init() {
-  // Intento de fusión inicial y suscripciones
-  await initialMerge();
-  subscribeRealtime();
-  setupLocalListeners();
-  // Empuje inicial por si ya había estado local
-  await pushLocalToRemote();
+    if (!getBusinessId()) {
+        console.log("Supabase Sync: Waiting for business to be defined by router...");
+        document.addEventListener('businessReady', init, { once: true });
+        return;
+    }
+    console.log("Supabase Sync: Initializing...");
+    await initialMerge();
+    subscribeRealtime();
+    setupLocalListeners();
+    await pushLocalToRemote();
 }
 
-// API global simple
+// --- Global API ---
 window.SupaSync = {
   init,
   pushLocalToRemote,
@@ -263,9 +272,4 @@ window.SupaSync = {
   supabase
 };
 
-// Arrancar automáticamente cuando el documento esté listo
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { init(); });
-} else {
-  init();
-}
+init();
