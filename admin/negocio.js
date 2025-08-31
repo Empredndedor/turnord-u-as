@@ -1,12 +1,25 @@
 // admin/negocio.js
 // Panel de negocio: configuración, break, ingresos y exportaciones
 
-const CONFIG_KEY = 'turnord_config_v1';
-const BREAK_KEY = 'turnord_break_v1';
-const HISTORY_KEY = 'turnord_history_v1';
-const CHANNEL_NAME = 'turnord_channel_v1';
+// --- Multi-tenancy Support ---
+function getCurrentBusinessId() {
+  return localStorage.getItem('turnord_current_business_id') || 'default';
+}
 
+function getPrefixedKey(baseKey) {
+  const businessId = getCurrentBusinessId();
+  return `${businessId}_${baseKey}`;
+}
+
+const CONFIG_KEY_BASE = 'turnord_config_v1';
+const BREAK_KEY_BASE = 'turnord_break_v1';
+const HISTORY_KEY_BASE = 'turnord_history_v1';
+
+// Los nombres de los canales no pueden ser dinámicos fácilmente, se mantiene uno solo.
+// La lógica de negocio separada por claves prefijadas manejará la aislación de datos.
+const CHANNEL_NAME = 'turnord_channel_v1';
 const bc = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel(CHANNEL_NAME) : null;
+
 
 function byId(id){ return document.getElementById(id); }
 function setText(id, val){ const el = byId(id); if (el) el.textContent = String(val); }
@@ -27,20 +40,21 @@ function defaultConfig(){
   };
 }
 
-function getConfig(){ return readJSON(CONFIG_KEY, defaultConfig()); }
-function saveConfig(cfg){ cfg.version = (cfg.version||0)+1; writeJSON(CONFIG_KEY, cfg); bc && bc.postMessage({ type:'config:update', version:cfg.version }); }
+function getConfig(){ return readJSON(getPrefixedKey(CONFIG_KEY_BASE), defaultConfig()); }
+function saveConfig(cfg){ cfg.version = (cfg.version||0)+1; writeJSON(getPrefixedKey(CONFIG_KEY_BASE), cfg); bc && bc.postMessage({ type:'config:update', version:cfg.version }); }
 
-function getBreakState(){ return readJSON(BREAK_KEY, { isOn:false, endAt:null, durationMin:30, message:'Estamos en break, regresamos pronto...' }); }
-function saveBreakState(state){ writeJSON(BREAK_KEY, state); bc && bc.postMessage({ type:'break:update' }); }
+function getBreakState(){ return readJSON(getPrefixedKey(BREAK_KEY_BASE), { isOn:false, endAt:null, durationMin:30, message:'Estamos en break, regresamos pronto...' }); }
+function saveBreakState(state){ writeJSON(getPrefixedKey(BREAK_KEY_BASE), state); bc && bc.postMessage({ type:'break:update' }); }
 
-function getHistory(){ return readJSON(HISTORY_KEY, { items:[], version:1 }); }
-function saveHistory(hist){ hist.version = (hist.version||0)+1; writeJSON(HISTORY_KEY, hist); bc && bc.postMessage({ type:'history:update', version:hist.version }); }
+function getHistory(){ return readJSON(getPrefixedKey(HISTORY_KEY_BASE), { items:[], version:1 }); }
+function saveHistory(hist){ hist.version = (hist.version||0)+1; writeJSON(getPrefixedKey(HISTORY_KEY_BASE), hist); bc && bc.postMessage({ type:'history:update', version:hist.version }); }
 
 function parseTimeToMinutes(hhmm){ const [h,m] = (hhmm||'0:0').split(':').map(x=>parseInt(x,10)||0); return h*60+m; }
 
 // Sincroniza historial a partir del estado actual de TurnoRD (solo día de hoy)
 function syncTodayHistoryFromState(){
   try{
+    // TurnoRD.getState() ya está prefijado en su propio archivo, no necesita cambios aquí.
     if (!window.TurnoRD) return;
     const st = TurnoRD.getState();
     const hist = getHistory();
@@ -274,6 +288,7 @@ function initSubscriptions(){
   if (bc){
     bc.onmessage = (ev)=>{
       if (!ev || !ev.data) return;
+      // Los mensajes de broadcast son para todas las pestañas, no necesitan filtrado de tenant
       if (ev.data.type === 'state:update') { renderIngresos(); }
       if (ev.data.type === 'config:update') { initConfig(); }
       if (ev.data.type === 'break:update') { renderBreak(); }
@@ -281,9 +296,18 @@ function initSubscriptions(){
     };
   }
   window.addEventListener('storage', (e)=>{
-    if ([HISTORY_KEY, HISTORY_KEY+':ping'].includes(e.key)) renderIngresos();
-    if ([CONFIG_KEY, CONFIG_KEY+':ping'].includes(e.key)) initConfig();
-    if ([BREAK_KEY, BREAK_KEY+':ping'].includes(e.key)) renderBreak();
+    // El evento de storage se dispara para todas las claves, debemos verificar si la clave
+    // modificada corresponde al negocio actual.
+    const key = e.key;
+    if (!key) return;
+
+    const currentHistoryKey = getPrefixedKey(HISTORY_KEY_BASE);
+    const currentConfigKey = getPrefixedKey(CONFIG_KEY_BASE);
+    const currentBreakKey = getPrefixedKey(BREAK_KEY_BASE);
+
+    if (key === currentHistoryKey || key === `${currentHistoryKey}:ping`) renderIngresos();
+    if (key === currentConfigKey || key === `${currentConfigKey}:ping`) initConfig();
+    if (key === currentBreakKey || key === `${currentBreakKey}:ping`) renderBreak();
   });
 }
 

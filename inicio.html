@@ -9,25 +9,28 @@
 <body class="min-h-screen text-slate-800 bg-gray-100 relative overflow-auto">
 
   <!-- Patrón gris sutil -->
-  <div class="pointer-events-none absolute inset-0 -z-20 opacity-[0.15]" 
-       style="background-image: radial-gradient(circle at 1px 1px, rgb(203 213 225 / 0.6) 1px, transparent 1px); 
+  <div class="pointer-events-none absolute inset-0 -z-20 opacity-[0.15]"
+       style="background-image: radial-gradient(circle at 1px 1px, rgb(203 213 225 / 0.6) 1px, transparent 1px);
               background-size: 20px 20px;">
   </div>
 
   <!-- Layout -->
   <div class="flex min-h-screen">
     <!-- Sidebar -->
-    <aside class="w-64 bg-blue-900 text-white p-6 flex flex-col justify-between min-h-full hidden md:block">
+    <aside id="sidebar" class="w-64 bg-blue-900 text-white p-6 flex flex-col justify-between min-h-full hidden md:block">
       <div>
-        <h2 class="text-2xl font-bold mb-8">Centro de Uñas Sheila</h2>
+        <h2 id="business-name-sidebar" class="text-2xl font-bold mb-8">Cargando...</h2>
         <nav class="space-y-4">
           <a href="inicio.html" class="block hover:text-blue-200">Inicio</a>
           <a href="turnos.html" class="block hover:text-blue-200">Turnos</a>
           <a href="negocio.html" class="block hover:text-blue-200">Mi negocio</a>
           <a href="configuracion.html" class="block hover:text-blue-200">Configuración</a>
-          <a href="cierre.html" class="block hover:text-red-200 mt-6">Cerrar sesión</a>
         </nav>
       </div>
+      <nav>
+          <a href="selector.html" class="block hover:text-yellow-200 text-yellow-300 border-t border-blue-800 pt-4 mt-4">Cambiar de negocio</a>
+          <a href="cierre.html" class="block hover:text-red-200 mt-4">Cerrar sesión</a>
+      </nav>
     </aside>
 
     <!-- Contenido principal -->
@@ -124,6 +127,32 @@
     }
   } catch (e) { console.error(e); }
 })();
+</script>
+<script src="admin/businesses.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const businessId = localStorage.getItem('turnord_current_business_id');
+    if (!businessId) {
+      window.location.href = 'selector.html';
+      return;
+    }
+
+    const businesses = window.APP_BUSINESSES || [];
+    const currentBusiness = businesses.find(b => b.id === businessId);
+
+    if (currentBusiness) {
+      const businessNameEl = document.getElementById('business-name-sidebar');
+      document.title = `Panel - ${currentBusiness.name}`;
+      if (businessNameEl) {
+        businessNameEl.textContent = currentBusiness.name;
+      }
+    } else {
+      const businessNameEl = document.getElementById('business-name-sidebar');
+      if (businessNameEl) {
+        businessNameEl.textContent = 'Negocio no válido';
+      }
+    }
+  });
 </script>
 <script src="admin/configuracion.js"></script>
 </body>
