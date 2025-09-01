@@ -1,9 +1,31 @@
 (function(){
-  const STORAGE_KEY = 'turnord_state_v1';
-  const CHANNEL_NAME = 'turnord_channel_v1';
   const PREFIX = 'A';
 
-  const bc = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel(CHANNEL_NAME) : null;
+  // --- Multi-Business Data Segregation ---
+  function getActiveBusinessId() {
+    // Fallback to a default ID if none is set (e.g., for the client form page)
+    return sessionStorage.getItem('activeBusinessId') || 'default';
+  }
+
+  function getStorageKey() {
+    const businessId = getActiveBusinessId();
+    return `turnord_state_v1_${businessId}`;
+  }
+
+  function getChannelName() {
+    const businessId = getActiveBusinessId();
+    return `turnord_channel_v1_${businessId}`;
+  }
+
+  let bc = null;
+  if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel(getChannelName());
+      } catch (e) {
+        console.error("Error creating BroadcastChannel:", e);
+      }
+  }
+  // --- End of Data Segregation ---
 
   function todayStr() {
     const d = new Date();
@@ -16,20 +38,21 @@
   function defaultState() {
     return {
       date: todayStr(),
-      queue: [], // {id, code, name, phone, type, description, status, createdAt, calledAt?, servedAt?, canceledAt?}
-      currentIndex: null,
+      queue: [], // {id, code, name, phone, type, description, status, createdAt, calledAt?, startedAt?, servedAt?, canceledAt?}
       lastNumber: 0,
       servedCount: 0,
-      version: 0
+      version: 0,
+      businessId: getActiveBusinessId() // Store which business this state belongs to
     };
   }
 
   function readState() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(getStorageKey());
       if (!raw) return defaultState();
       const st = JSON.parse(raw);
-      if (!st || st.date !== todayStr()) {
+      // If state is from another business or another day, reset.
+      if (!st || st.date !== todayStr() || st.businessId !== getActiveBusinessId()) {
         return defaultState();
       }
       return st;
@@ -41,21 +64,20 @@
 
   function writeState(state, silent=false) {
     state.version = (state.version || 0) + 1;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const storageKey = getStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(state));
     if (!silent) {
       if (bc) {
         bc.postMessage({ type: 'state:update', version: state.version });
       } else {
-        // Fallback: bump a ping key to trigger storage events
-        localStorage.setItem(STORAGE_KEY+':ping', String(Date.now()));
+        localStorage.setItem(storageKey + ':ping', String(Date.now()));
       }
     }
   }
 
   function ensureInit() {
     const st = readState();
-    // If outdated date, defaultState() already handled via readState
-    writeState(st, true); // ensure it exists without broadcasting
+    writeState(st, true);
     return st;
   }
 
@@ -65,17 +87,22 @@
 
   function getWaitingCount(){
     const st = readState();
-    return st.queue.filter(t => t.status === 'waiting').length + (st.currentIndex===null?0:0);
+    return st.queue.filter(t => t.status === 'waiting').length;
+  }
+
+  function getServingTickets() {
+    const st = readState();
+    return st.queue.filter(t => t.status === 'serving');
   }
 
   function getCurrentTicket(){
-    const st = readState();
-    if (st.currentIndex === null) return null;
-    return st.queue[st.currentIndex] || null;
+    // For client page compatibility, return the one that was called first
+    const serving = getServingTickets();
+    if (!serving.length) return null;
+    return serving.sort((a,b) => new Date(a.calledAt) - new Date(b.calledAt))[0];
   }
 
   function makeCode(n){
-    // 2-digit padding up to 99, then grows naturally
     const num = String(n).padStart(2,'0');
     return PREFIX + num;
   }
@@ -85,6 +112,9 @@
     const nextNum = st.lastNumber + 1;
     const code = makeCode(nextNum);
     const now = new Date().toISOString();
+
+    const isFirstTicket = st.queue.length === 0;
+
     const ticket = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
       code,
@@ -92,121 +122,85 @@
       phone: phone?.trim() || '',
       type: type || '',
       description: description || '',
-      status: st.currentIndex === null && st.queue.length === 0 ? 'serving' : 'waiting',
+      status: 'waiting', // Always start as waiting
       createdAt: now
     };
 
     st.queue.push(ticket);
     st.lastNumber = nextNum;
 
-    if (st.currentIndex === null && st.queue.length === 1) {
-      st.currentIndex = 0;
-      st.queue[0].calledAt = now;
-    }
-
     writeState(st);
 
-    const ahead = st.currentIndex === null ? 0 : st.queue.filter((t,i)=> i>=(st.currentIndex||0) && t.status==='waiting').length;
+    const ahead = st.queue.filter(t => t.status === 'waiting' && t.id !== ticket.id).length;
     return { ticket, ahead };
   }
 
-  function findNextWaitingIndex(st){
-    for (let i = (st.currentIndex==null?0:st.currentIndex+1); i < st.queue.length; i++){
-      if (st.queue[i].status === 'waiting') return i;
-    }
-    // If none after current, try from start
-    for (let i = 0; i < (st.currentIndex==null?0:st.currentIndex); i++){
-      if (st.queue[i].status === 'waiting') return i;
+  function attendTicket(ticketId) {
+    const st = readState();
+    const ticket = st.queue.find(t => t.id === ticketId);
+    if (ticket && ticket.status === 'waiting') {
+        ticket.status = 'serving';
+        ticket.calledAt = new Date().toISOString();
+        ticket.startedAt = ticket.startedAt || ticket.calledAt;
+        writeState(st);
+        return ticket;
     }
     return null;
   }
 
-  function nextTicket(){
-    const st = readState();
-    const now = new Date().toISOString();
-
-    if (st.currentIndex !== null) {
-      const cur = st.queue[st.currentIndex];
-      if (cur && cur.status === 'serving') {
-        cur.status = 'served';
-        cur.servedAt = now;
-        st.servedCount += 1;
+  function markAsServed(ticketId) {
+      const st = readState();
+      const ticket = st.queue.find(t => t.id === ticketId);
+      if (ticket && ticket.status === 'serving') {
+          ticket.status = 'served';
+          ticket.servedAt = new Date().toISOString();
+          st.servedCount = (st.servedCount || 0) + 1;
+          writeState(st);
+          return ticket;
       }
-    }
-
-    const nextIdx = findNextWaitingIndex(st);
-    if (nextIdx === null) {
-      st.currentIndex = null;
-    } else {
-      st.currentIndex = nextIdx;
-      st.queue[nextIdx].status = 'serving';
-      st.queue[nextIdx].calledAt = now;
-    }
-
-    writeState(st);
-    return getCurrentTicket();
+      return null;
   }
 
-  function recallCurrent(){
+  function cancelTicket(ticketId) {
     const st = readState();
-    if (st.currentIndex === null) return null;
-    const cur = st.queue[st.currentIndex];
-    if (!cur) return null;
-    cur.calledAt = new Date().toISOString();
-    writeState(st);
-    return cur;
-  }
-
-  function startCurrent(){
-    const st = readState();
-    const now = new Date().toISOString();
-    // Si no hay turno actual, tomar el primero en espera y asignarlo
-    if (st.currentIndex === null) {
-      let nextIdx = null;
-      for (let i = 0; i < st.queue.length; i++) {
-        if (st.queue[i].status === 'waiting') { nextIdx = i; break; }
-      }
-      if (nextIdx === null) return null;
-      st.currentIndex = nextIdx;
-      st.queue[nextIdx].status = 'serving';
-      st.queue[nextIdx].calledAt = st.queue[nextIdx].calledAt || now;
+    const ticket = st.queue.find(t => t.id === ticketId);
+    if (ticket) {
+        ticket.status = 'canceled';
+        ticket.canceledAt = new Date().toISOString();
+        writeState(st);
+        return ticket;
     }
-    const cur = st.queue[st.currentIndex];
-    if (!cur) return null;
-    if (!cur.calledAt) cur.calledAt = now;
-    cur.startedAt = now;
-    writeState(st);
-    return cur;
-  }
-
-  function attendCurrent(){
-    // alias to nextTicket (mark served then advance)
-    return nextTicket();
-  }
-
-  function cancelCurrent(){
-    const st = readState();
-    const now = new Date().toISOString();
-    if (st.currentIndex === null) return null;
-    const cur = st.queue[st.currentIndex];
-    if (cur) {
-      cur.status = 'canceled';
-      cur.canceledAt = now;
-    }
-    const next = findNextWaitingIndex(st);
-    if (next === null) st.currentIndex = null; else {
-      st.currentIndex = next;
-      st.queue[next].status = 'serving';
-      st.queue[next].calledAt = now;
-    }
-    writeState(st);
-    return getCurrentTicket();
+    return null;
   }
 
   function resetAll(){
     const st = defaultState();
     writeState(st);
     return st;
+  }
+
+  function moveTurn(ticketId, direction) {
+      const st = readState();
+      const waitingQueue = st.queue.filter(t => t.status === 'waiting');
+      const ticketIndex = waitingQueue.findIndex(t => t.id === ticketId);
+
+      if (ticketIndex === -1) return;
+
+      if (direction === 'up' && ticketIndex > 0) {
+          const originalIndex = st.queue.findIndex(t => t.id === ticketId);
+          const targetId = waitingQueue[ticketIndex - 1].id;
+          const targetIndex = st.queue.findIndex(t => t.id === targetId);
+
+          [st.queue[originalIndex], st.queue[targetIndex]] = [st.queue[targetIndex], st.queue[originalIndex]];
+          writeState(st);
+      } else if (direction === 'down' && ticketIndex < waitingQueue.length - 1) {
+          const originalIndex = st.queue.findIndex(t => t.id === ticketId);
+          const targetId = waitingQueue[ticketIndex + 1].id;
+          const targetIndex = st.queue.findIndex(t => t.id === targetId);
+
+          [st.queue[originalIndex], st.queue[targetIndex]] = [st.queue[targetIndex], st.queue[originalIndex]];
+          writeState(st);
+      }
   }
 
   // Subscription mechanism
@@ -227,7 +221,8 @@
   }
 
   window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY || e.key === STORAGE_KEY+':ping') {
+    const storageKey = getStorageKey();
+    if (e.key === storageKey || e.key === storageKey + ':ping') {
       emit();
     }
   });
@@ -235,7 +230,6 @@
   function subscribe(cb){
     if (typeof cb !== 'function') return () => {};
     listeners.add(cb);
-    // immediate push
     cb(readState());
     return () => listeners.delete(cb);
   }
@@ -244,20 +238,33 @@
     ensureInit();
   }
 
-  // Expose API
+  // Expose NEW and OLD API
   window.TurnoRD = {
     initState,
     getState,
-    getCurrentTicket,
+    getServingTickets,
     getWaitingCount,
     addTicket,
-    nextTicket,
-    recallCurrent,
-    startCurrent,
-    attendCurrent,
-    cancelCurrent,
+    attendTicket,
+    markAsServed,
+    cancelTicket,
     resetAll,
-    subscribe
+    moveTurn,
+    subscribe,
+    // For backward compatibility
+    getCurrentTicket,
+    nextTicket: () => { // Deprecated but shouldn't break old pages
+        const st = readState();
+        const firstWaiting = st.queue.find(t => t.status === 'waiting');
+        if(firstWaiting) attendTicket(firstWaiting.id);
+    },
+    startCurrent: () => { /* No-op, handled by attendTicket */ },
+    attendCurrent: () => { /* No-op, handled by markAsServed */ },
+    cancelCurrent: () => {
+        const firstServing = getCurrentTicket();
+        if(firstServing) cancelTicket(firstServing.id);
+    },
+    recallCurrent: () => { /* No-op */ }
   };
 
   // Initialize at load
