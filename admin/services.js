@@ -1,12 +1,23 @@
 // admin/services.js
 // Gestión de servicios para el negocio y sincronización entre formulariocliente.html y turnos.html
 
-const SERVICES_KEY = 'turnord_services_v1';
-const WAITING_TIMES_KEY = 'turnord_waiting_times_v1';
-const CLIENT_HISTORY_KEY = 'turnord_client_history_v1';
-const CHANNEL_NAME = 'turnord_channel_v1';
+function getActiveBusinessId() {
+  return sessionStorage.getItem('activeBusinessId') || 'default';
+}
 
-const bc = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel(CHANNEL_NAME) : null;
+function getServicesKey() { return `turnord_services_v1_${getActiveBusinessId()}`; }
+function getWaitingTimesKey() { return `turnord_waiting_times_v1_${getActiveBusinessId()}`; }
+function getClientHistoryKey() { return `turnord_client_history_v1_${getActiveBusinessId()}`; }
+function getChannelName() { return `turnord_channel_v1_${getActiveBusinessId()}`; }
+
+let bc = null;
+if (typeof BroadcastChannel !== 'undefined') {
+  try {
+    bc = new BroadcastChannel(getChannelName());
+  } catch (e) {
+    console.error("Error creating BroadcastChannel:", e);
+  }
+}
 
 // Funciones de utilidad
 function byId(id) { return document.getElementById(id); }
@@ -31,7 +42,7 @@ function diffSeconds(isoStart, isoEnd) {
 
 // Funciones para gestionar servicios
 function getServices() {
-  const services = readJSON(SERVICES_KEY, { items: [], version: 1 });
+  const services = readJSON(getServicesKey(), { items: [], version: 1 });
   
   // Si no hay servicios, inicializar con servicios predeterminados
   if (services.items.length === 0) {
@@ -56,7 +67,7 @@ function getServices() {
 
 function saveServices(services) {
   services.version = (services.version || 0) + 1;
-  writeJSON(SERVICES_KEY, services);
+  writeJSON(getServicesKey(), services);
   bc && bc.postMessage({ type: 'services:update', version: services.version });
 }
 
@@ -273,7 +284,7 @@ function syncServicesToForms() {
 
 // Gestión de tiempos de espera
 function getWaitingTimes() {
-  return readJSON(WAITING_TIMES_KEY, { services: {}, average: {}, version: 1 });
+  return readJSON(getWaitingTimesKey(), { services: {}, average: {}, version: 1 });
 }
 
 function updateWaitingTime(serviceName, seconds) {
@@ -303,7 +314,7 @@ function updateWaitingTime(serviceName, seconds) {
   
   // Guardar cambios
   waitingTimes.version = (waitingTimes.version || 0) + 1;
-  writeJSON(WAITING_TIMES_KEY, waitingTimes);
+  writeJSON(getWaitingTimesKey(), waitingTimes);
   bc && bc.postMessage({ type: 'waiting_times:update', version: waitingTimes.version });
   
   return waitingTimes;
@@ -311,7 +322,7 @@ function updateWaitingTime(serviceName, seconds) {
 
 // Gestión de historial de clientes
 function getClientHistory() {
-  return readJSON(CLIENT_HISTORY_KEY, { clients: {}, version: 1 });
+  return readJSON(getClientHistoryKey(), { clients: {}, version: 1 });
 }
 
 function updateClientHistory(phone, name, service, duration, amount) {
@@ -353,7 +364,7 @@ function updateClientHistory(phone, name, service, duration, amount) {
   
   // Guardar cambios
   history.version = (history.version || 0) + 1;
-  writeJSON(CLIENT_HISTORY_KEY, history);
+  writeJSON(getClientHistoryKey(), history);
   bc && bc.postMessage({ type: 'client_history:update', version: history.version });
   
   return client;
@@ -389,16 +400,16 @@ function initSubscriptions() {
   }
   
   window.addEventListener('storage', (e) => {
-    if ([SERVICES_KEY, SERVICES_KEY+':ping'].includes(e.key)) {
+    if ([getServicesKey(), getServicesKey()+':ping'].includes(e.key)) {
       renderServices();
       syncServicesToForms();
     }
     
-    if ([WAITING_TIMES_KEY, WAITING_TIMES_KEY+':ping'].includes(e.key)) {
+    if ([getWaitingTimesKey(), getWaitingTimesKey()+':ping'].includes(e.key)) {
       updateWaitingTimeDisplay();
     }
     
-    if ([CLIENT_HISTORY_KEY, CLIENT_HISTORY_KEY+':ping'].includes(e.key)) {
+    if ([getClientHistoryKey(), getClientHistoryKey()+':ping'].includes(e.key)) {
       updateClientHistoryDisplay();
     }
   });
