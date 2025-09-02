@@ -135,8 +135,13 @@ function initConfig(){
   document.querySelectorAll('.day-btn').forEach(btn => {
     const d = Number(btn.dataset.day);
     const active = cfg.openDays.includes(d);
-    if (d===0 && !active) { btn.classList.add('bg-gray-100','dark:bg-gray-700','text-gray-400'); btn.classList.remove('bg-blue-100','dark:bg-blue-900','text-blue-800','dark:text-blue-200'); }
-    if (active && d!==0){ btn.classList.add('bg-blue-100','dark:bg-blue-900','text-blue-800','dark:text-blue-200'); btn.classList.remove('bg-gray-100','dark:bg-gray-700','text-gray-400'); }
+    if (active) {
+        btn.classList.add('bg-blue-100','dark:bg-blue-900','text-blue-800','dark:text-blue-200');
+        btn.classList.remove('bg-gray-100','dark:bg-gray-700','text-gray-400');
+    } else {
+        btn.classList.add('bg-gray-100','dark:bg-gray-700','text-gray-400');
+        btn.classList.remove('bg-blue-100','dark:bg-blue-900','text-blue-800','dark:text-blue-200');
+    }
     btn.addEventListener('click', ()=>{
       const arr = new Set(getConfig().openDays);
       if (arr.has(d)) arr.delete(d); else arr.add(d);
