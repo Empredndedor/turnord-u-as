@@ -182,9 +182,20 @@
     }
     if (listEl.contains(emptyEl)) emptyEl.style.display = 'none';
 
+    // For ETA calculation
+    const services = window.ServicesManager ? window.ServicesManager.getServices().items : [];
+    const serviceDurationMap = services.reduce((map, s) => {
+        map[s.name] = s.duration * 60; // in seconds
+        return map;
+    }, {});
+    let cumulativeWaitTime = 0;
+
     waitingList.forEach((t, index) => {
         const card = document.createElement('div');
         card.className = 'p-3 rounded-xl border border-blue-100 bg-white shadow-sm flex flex-col justify-between';
+
+        const etaText = cumulativeWaitTime > 0 ? `ETA: ${formatDuration(cumulativeWaitTime)}` : 'A continuación';
+        const serviceDuration = serviceDurationMap[t.type] || (30 * 60); // Default 30 mins
 
         card.innerHTML = `
           <div>
@@ -199,9 +210,9 @@
               </div>
             </div>
             <div class="mt-2 text-sm text-gray-600">Servicio: <span class="font-medium">${t.type || '-'}</span></div>
+            <div class="mt-1 text-sm text-blue-600 font-semibold">${etaText}</div>
           </div>
-          <div class="mt-3 flex items-center justify-between gap-2">
-            <button onclick="TurnoRD.attendTicket('${t.id}')" class="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">Atender</button>
+          <div class="mt-3 flex items-center justify-end gap-2">
             <div class="flex">
               <button onclick="TurnoRD.moveTurn('${t.id}', 'up')" class="p-1.5 text-gray-400 hover:text-blue-600 disabled:opacity-30" ${index === 0 ? 'disabled' : ''}>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
@@ -213,6 +224,9 @@
           </div>
         `;
         listEl.appendChild(card);
+
+        // Add current turn's duration to the cumulative time for the next iteration
+        cumulativeWaitTime += serviceDuration;
     });
   }
 

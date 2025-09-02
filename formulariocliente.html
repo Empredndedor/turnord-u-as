@@ -10,8 +10,13 @@
 <body class="bg-gray-100 text-gray-900 min-h-screen flex items-center justify-center px-4">
 
 <div class="text-center text-gray-900 w-full max-w-md p-6 bg-white rounded-2xl shadow-lg border border-blue-200">
-    <h1 class="text-3xl tracking-wide mb-2 font-bold text-blue-600">💅 Centro de Uñas Sheila</h1>
-    <p class="text-lg font-semibold text-gray-700">¡Bienvenida, tu belleza es nuestra pasión!</p>
+    <h1 id="business-name" class="text-3xl tracking-wide mb-2 font-bold text-blue-600">💅 Cargando...</h1>
+    <p id="business-welcome" class="text-lg font-semibold text-gray-700">¡Bienvenida, tu belleza es nuestra pasión!</p>
+
+    <div id="business-status-container" class="mb-4">
+        <!-- Status will be injected here by JS -->
+    </div>
+
     <p class="text-sm text-gray-500 mb-8" id="fecha-de-hoy"></p>
 
     <div class="bg-blue-100 text-gray-900 p-6 rounded-xl mb-6 shadow-inner border border-blue-200">
@@ -200,6 +205,89 @@
 
   // Initial check once everything is loaded
   setTimeout(checkActiveTurn, 200);
+
+  // --- Business Hours and Break Logic ---
+  const urlParams = new URLSearchParams(window.location.search);
+  const businessIdFromUrl = urlParams.get('business');
+
+  function getBusinessId() {
+    return businessIdFromUrl || 'default';
+  }
+
+  function getPrefixedKey(baseKey) {
+    const businessId = getBusinessId();
+    return `${businessId}_${baseKey}`;
+  }
+
+  function readJSON(key, fallback){ try{ const raw = localStorage.getItem(key); return raw? JSON.parse(raw) : fallback; }catch(_){ return fallback; } }
+  function getConfig(){ return readJSON(getPrefixedKey('turnord_config_v1'), { hours: { open: '08:00', close: '20:00' }, openDays: [1,2,3,4,5,6] }); }
+  function getBreakState(){ return readJSON(getPrefixedKey('turnord_break_v1'), { isOn:false, endAt:null, message:'' }); }
+
+  function checkBusinessStatus() {
+    const config = getConfig();
+    const breakState = getBreakState();
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Sunday, 1=Monday, etc.
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    const openTime = (config.hours.open.split(':').map(Number)[0] * 60) + (config.hours.open.split(':').map(Number)[1]);
+    const closeTime = (config.hours.close.split(':').map(Number)[0] * 60) + (config.hours.close.split(':').map(Number)[1]);
+
+    const isOpenToday = config.openDays.includes(currentDay);
+    const isWithinHours = currentTime >= openTime && currentTime < closeTime;
+    const isOnBreak = breakState.isOn && new Date(breakState.endAt) > now;
+
+    const statusContainer = document.getElementById('business-status-container');
+    const takeTurnButton = document.getElementById('btn-tomar-turno');
+    let statusMessage = '';
+    let canTakeTurn = false;
+
+    if (isOnBreak) {
+      statusMessage = `<div class="bg-yellow-100 text-yellow-800 p-3 rounded-lg text-center">${breakState.message || 'En descanso, volvemos pronto.'}</div>`;
+      canTakeTurn = false;
+    } else if (!isOpenToday || !isWithinHours) {
+      statusMessage = `<div class="bg-red-100 text-red-800 p-3 rounded-lg text-center"><strong>Cerrado Ahora.</strong> Horario: ${config.hours.open} - ${config.hours.close}</div>`;
+      canTakeTurn = false;
+    } else {
+      statusMessage = `<div class="bg-green-100 text-green-800 p-3 rounded-lg text-center"><strong>Abierto Ahora.</strong> ¡Te esperamos!</div>`;
+      canTakeTurn = true;
+    }
+
+    statusContainer.innerHTML = statusMessage;
+    // Only enable the button if the business is open AND the user doesn't have an active turn
+    if (!canTakeTurn) {
+        takeTurnButton.disabled = true;
+    } else {
+        checkActiveTurn(); // Let checkActiveTurn make the final decision
+    }
+  }
+
+  // Also load business name
+  function loadBusinessDetails() {
+    const businessId = getBusinessId();
+    if (window.APP_BUSINESSES) {
+        const business = window.APP_BUSINESSES.find(b => b.id === businessId);
+        if (business) {
+            document.getElementById('business-name').textContent = `💅 ${business.name}`;
+            document.title = business.name;
+        } else {
+            document.getElementById('business-name').textContent = 'Negocio no encontrado';
+        }
+    }
+  }
+
+  // Run checks
+  if (businessIdFromUrl) {
+    // Override TurnoRD's active business ID for this page
+    sessionStorage.setItem('activeBusinessId', businessIdFromUrl);
+    loadBusinessDetails();
+    checkBusinessStatus();
+    setInterval(checkBusinessStatus, 60000); // Check every minute
+  } else {
+    document.getElementById('business-status-container').innerHTML = '<div class="bg-red-100 text-red-800 p-3 rounded-lg text-center">Error: No se ha especificado un negocio.</div>';
+    document.getElementById('btn-tomar-turno').disabled = true;
+  }
+
 })();
 </script>
 
