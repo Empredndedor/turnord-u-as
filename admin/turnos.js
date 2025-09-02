@@ -282,9 +282,9 @@
   document.getElementById('nombre')?.addEventListener('input', function() { this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ ]/g, ''); });
   document.querySelectorAll('aside nav a').forEach(link => {
     if (window.location.pathname.endsWith(link.getAttribute('href'))) {
-      link.classList.add('bg-white', 'text-blue-900', 'font-semibold', 'shadow');
+      link.classList.add('bg-indigo-700', 'text-white', 'font-semibold', 'shadow');
     } else {
-      link.classList.remove('bg-white', 'text-blue-900', 'font-semibold', 'shadow');
+      link.classList.remove('bg-indigo-700', 'text-white', 'font-semibold', 'shadow');
     }
   });
 })();
