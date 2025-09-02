@@ -33,12 +33,29 @@
     const ctx2 = document.getElementById('serviciosChart')?.getContext('2d');
     if (ctx1 && !charts.status){
       charts.status = new Chart(ctx1, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
           labels: ['En espera','Atendiendo','Atendidos','Cancelados'],
-          datasets: [{ data: [0,0,0,0], backgroundColor: ['#93c5fd','#34d399','#2563eb','#9ca3af'] }]
+          datasets: [{
+            label: 'Total',
+            data: [0,0,0,0],
+            backgroundColor: ['#93c5fd','#34d399','#2563eb','#9ca3af']
+          }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
       });
     }
     if (ctx2 && !charts.services){
