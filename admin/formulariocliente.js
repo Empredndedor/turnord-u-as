@@ -148,6 +148,19 @@
     return null;
   }
 
+  function returnToQueue(ticketId) {
+    const st = readState();
+    const ticket = st.queue.find(t => t.id === ticketId);
+    if (ticket && ticket.status === 'serving') {
+        ticket.status = 'waiting';
+        delete ticket.calledAt;
+        delete ticket.startedAt;
+        writeState(st);
+        return ticket;
+    }
+    return null;
+  }
+
   function markAsServed(ticketId) {
       const st = readState();
       const ticket = st.queue.find(t => t.id === ticketId);
@@ -248,6 +261,7 @@
     attendTicket,
     markAsServed,
     cancelTicket,
+    returnToQueue,
     resetAll,
     moveTurn,
     subscribe,

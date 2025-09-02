@@ -78,10 +78,26 @@
       setText('hora-actual', now.toLocaleTimeString('es-DO', { hour:'2-digit', minute:'2-digit' }));
     } catch(e){}
 
-    const oldTurnoActualCard = qsid('turnoActual')?.closest('.bg-white');
-    if (oldTurnoActualCard) oldTurnoActualCard.style.display = 'none';
-
     const servingList = TurnoRD.getServingTickets();
+    const primaryTurn = servingList.sort((a,b) => new Date(a.calledAt) - new Date(b.calledAt))[0] || null;
+
+    // Populate the main "Turno Actual" card
+    if (primaryTurn) {
+        setText('turnoActual', primaryTurn.code);
+        setText('cliente-actual', primaryTurn.name || '-');
+        setText('servicio-actual', primaryTurn.type || '-');
+        const now = new Date().toISOString();
+        const elapsed = diffSeconds(primaryTurn.startedAt || primaryTurn.calledAt, now);
+        setText('tiempo-transcurrido', formatDuration(elapsed));
+    } else {
+        setText('turnoActual', '--');
+        setText('cliente-actual', '-');
+        setText('servicio-actual', '-');
+        setText('tiempo-transcurrido', '-');
+    }
+
+    const oldTurnoActualCard = qsid('turnoActual')?.closest('.bg-white');
+    if (oldTurnoActualCard) oldTurnoActualCard.style.display = ''; // Make it visible
     const waitingList = state.queue.filter(t => t.status==='waiting');
 
     setText('turnos-espera', String(waitingList.length));
@@ -181,6 +197,25 @@
         `;
         listEl.appendChild(card);
     });
+  }
+
+  window.atenderSiguiente = function() {
+    const state = TurnoRD.getState();
+    const firstWaiting = state.queue.find(t => t.status === 'waiting');
+    if (firstWaiting) {
+        TurnoRD.attendTicket(firstWaiting.id);
+    } else {
+        Swal.fire({ title: 'No hay nadie en espera', icon: 'info', timer: 2000, showConfirmButton: false });
+    }
+  }
+
+  window.devolverTurno = function() {
+    const primaryTurn = TurnoRD.getServingTickets().sort((a,b) => new Date(a.calledAt) - new Date(b.calledAt))[0];
+    if (primaryTurn) {
+        TurnoRD.returnToQueue(primaryTurn.id);
+    } else {
+        Swal.fire({ title: 'No hay nadie en atención', icon: 'info', timer: 2000, showConfirmButton: false });
+    }
   }
 
   window.abrirModal = function(){ const m = qsid('modal'); if (m){ m.classList.remove('hidden'); m.classList.add('flex'); }}

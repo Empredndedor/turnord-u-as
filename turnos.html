@@ -123,7 +123,19 @@
 
       <!-- Botones de acción -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="md:col-span-3"></div> <!-- Empty space -->
+        <button onclick="devolverTurno()" class="bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-semibold shadow-md transition-all flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Devolver Turno
+        </button>
+        <button onclick="atenderSiguiente()" class="bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold shadow-md transition-all flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+          </svg>
+          Atender Siguiente
+        </button>
+        <div class="md:col-span-1"></div> <!-- Empty space -->
         <button onclick="abrirModal()" class="bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-xl font-semibold shadow-md transition-all flex items-center justify-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
